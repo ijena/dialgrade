@@ -45,9 +45,11 @@ export async function placeCall(targetNumber, question) {
     assistantId: process.env.VAPI_ASSISTANT_ID,
     customer: { number: targetNumber }
   };
-  // if a custom question was provided, override the assistant's opening line for this call
+  // if a custom question was provided, override the assistant's opening line for this call.
+  // Always prepend the identification intro so the consent/recording notice is never dropped.
   if (question && question.trim()) {
-    payload.assistantOverrides = { firstMessage: question.trim() };
+    const INTRO = "Hi, I'm an automated assistant calling on behalf of a customer, and this call may be recorded. They'd like to know:";
+    payload.assistantOverrides = { firstMessage: `${INTRO} ${question.trim()}` };
   }
   const res = await fetch(`${BASE}/call/phone`, {
     method: "POST",
