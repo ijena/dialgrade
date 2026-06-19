@@ -1,46 +1,62 @@
 /**
- * server.js — tiny local API so the dashboard button can place a real call
- * without exposing your Vapi key in the browser.
+ * server.js — local API for the dashboard.
+ *   POST /audit   -> place a Vapi call, score it (Nebius), save to Insforge
+ *   GET  /audits  -> return all saved audits (dashboard builds the roster from these)
  *
- * Run:  node src/server.js   (then open the dashboard, button hits this)
+ * Run:  npm run serve
  * Needs the same .env as the rest of the app.
  */
 import "dotenv/config";
 import { createServer } from "node:http";
 import { runVapiCall } from "./vapi.js";
-import { scoreWithNebius } from "./nebius.js"; // add back when you do scoring
+import { scoreWithNebius } from "./nebius.js";
+import { saveAudit, loadAudits } from "./insforge.js";
 
 const PORT = process.env.PORT || 8787;
 
-// allow the dashboard (opened from file:// or another port) to call us
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type"
 };
+
+function json(res, code, payload) {
+  res.writeHead(code, { "Content-Type": "application/json", ...CORS });
+  res.end(JSON.stringify(payload));
+}
 
 createServer(async (req, res) => {
   if (req.method === "OPTIONS") { res.writeHead(204, CORS); return res.end(); }
 
+  // --- place a call, score it, save it ---
   if (req.method === "POST" && req.url === "/audit") {
     try {
-      // read optional { number } from the request body; fall back to .env
       let body = "";
       for await (const chunk of req) body += chunk;
-      const { number } = body ? JSON.parse(body) : {};
+      const { number, businessName } = body ? JSON.parse(body) : {};
       const target = number || process.env.TARGET_NUMBER;
+      const name = businessName || "Unknown business";
 
-      console.log(`Placing call to ${target} …`);
-      const call = await runVapiCall(target);          // real Vapi call
-      const score = await scoreWithNebius(call);     // <- add scoring later
+      console.log(`Placing call to ${target} for "${name}" …`);
+      const call = await runVapiCall(target);            // Vapi
+      const score = await scoreWithNebius(call);         // Nebius
+      const saved = await saveAudit(name, call, score);  // Insforge
 
-      res.writeHead(200, { "Content-Type": "application/json", ...CORS });
-      return res.end(JSON.stringify({ ok: true, call /*, score */ }));
+      return json(res, 200, { ok: true, call, score, saved });
     } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json", ...CORS });
-      return res.end(JSON.stringify({ ok: false, error: err.message }));
+      return json(res, 500, { ok: false, error: err.message });
+    }
+  }
+
+  // --- read all saved audits (newest first) ---
+  if (req.method === "GET" && req.url === "/audits") {
+    try {
+      const audits = await loadAudits();
+      return json(res, 200, { ok: true, audits });
+    } catch (err) {
+      return json(res, 500, { ok: false, error: err.message });
     }
   }
 
   res.writeHead(404, CORS); res.end();
-}).listen(PORT, () => console.log(`Dialgrade server on http://localhost:${PORT}  (POST /audit)`));
+}).listen(PORT, () => console.log(`Dialgrade server on http://localhost:${PORT}  (POST /audit, GET /audits)`));
