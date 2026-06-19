@@ -455,7 +455,9 @@ window.select = id => { if(calling) return; selectedId=id; render(); };
 /* ============================================================================
    THE LIVE-CALL SEQUENCE  —  the signature moment
    ========================================================================== */
-const SERVER_URL = "http://localhost:8787/audit";  // your local Dialgrade server
+const SERVER_BASE = "http://localhost:8787";
+const SERVER_URL = SERVER_BASE + "/audit";  // your local Dialgrade server
+const AUDITS_URL = SERVER_BASE + "/audits"; // load saved audits from Insforge
 const USE_LIVE_CALL = true;  // set false to force the simulated path
 
 const PHASES=[
@@ -496,7 +498,7 @@ async function finishAudit(biz, phase, track, wave, reduce){
     const res = await fetch(SERVER_URL, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ number: biz.phone })   // omit/null -> server uses TARGET_NUMBER
+      body: JSON.stringify({ number: biz.phone, businessName: biz.name })  // omit number -> server uses TARGET_NUMBER
     });
     const data = await res.json();
     if(!data.ok) throw new Error(data.error||"server error");
@@ -556,6 +558,32 @@ window.scoreManual = ()=>{
 };
 
 render();
-</script>
-</body>
-</html>
+
+/* On load, pull any saved audits from Insforge (via the server) and merge them
+   into the roster so past calls and before/after history survive a page refresh. */
+async function loadSavedAudits(){
+  try {
+    const res = await fetch(AUDITS_URL);
+    const data = await res.json();
+    if(!data.ok || !data.audits?.length) return;
+    // group rows by business, newest first (server already sorts desc)
+    const byBiz = {};
+    for(const row of data.audits){
+      (byBiz[row.business_name] ||= []).push({
+        ts: new Date(row.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+        score: row.score, rating: row.rating,
+        signals: row.signals, fixes: row.fixes, transcript: row.transcript
+      });
+    }
+    for(const biz of businesses){
+      if(byBiz[biz.name]){
+        // real audits go in front of the seeded baseline
+        biz.history = [...byBiz[biz.name], ...biz.history];
+      }
+    }
+    render();
+  } catch(err){
+    console.warn("Could not load saved audits (server off or Insforge not configured):", err.message);
+  }
+}
+loadSavedAudits();
