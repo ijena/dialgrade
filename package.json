@@ -1,0 +1,14 @@
+{
+  "name": "dialgrade",
+  "version": "0.1.0",
+  "description": "AI-caller readiness audit: calls a business like Google's AI shopper, scores how the line handled it.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "audit": "node src/index.js",
+    "score": "node src/score-transcript.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
