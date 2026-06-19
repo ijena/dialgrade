@@ -10,17 +10,32 @@ function headers() {
   };
 }
 
-// endedReason substrings that mean "no human picked up" -> connected: false.
-// VERIFY these against your own test calls and add any you see. An answered
-// call typically ends with "hangup".
-const NOT_CONNECTED_HINTS = [
-  "voicemail", "no-answer", "did-not-answer", "customer-did-not-answer",
-  "busy", "failed", "no-pickup"
+// Reasons that mean a human DID pick up and the call ran normally.
+// A normal answered call ends when someone hangs up.
+const CONNECTED_REASONS = [
+  "hangup",            // either side hung up after a real conversation
+  "assistant-ended",   // the assistant ended the call after completing its goals
+  "customer-ended"     // the customer ended the call
 ];
 
+// Reasons that explicitly mean nobody picked up. Kept for clarity/logging.
+const NOT_CONNECTED_HINTS = [
+  "voicemail", "no-answer", "did-not-answer", "customer-did-not-answer",
+  "busy", "failed", "no-pickup", "twilio", "canceled", "cancelled"
+];
+
+// Decide whether a human actually answered.
+// SAFE DEFAULT: only count as connected if the endedReason clearly indicates a
+// completed, answered call. Anything else (voicemail, no-answer, error, unknown)
+// counts as NOT connected -> scored as a missed call (hard-zero). Better to
+// under-credit an ambiguous call than to give points for one nobody answered.
 export function deriveConnected(endedReason = "") {
   const r = endedReason.toLowerCase();
-  return !NOT_CONNECTED_HINTS.some(h => r.includes(h));
+  if (NOT_CONNECTED_HINTS.some(h => r.includes(h))) return false;
+  if (CONNECTED_REASONS.some(h => r.includes(h))) return true;
+  // unknown reason -> treat as NOT answered, and flag it so you can tune the lists
+  console.warn(`[deriveConnected] unrecognized endedReason "${endedReason}" -> treating as NOT answered. Add it to CONNECTED_REASONS if it was actually answered.`);
+  return false;
 }
 
 export async function placeCall(targetNumber) {
@@ -60,10 +75,13 @@ export async function waitForEnd(id, { everyMs = 4000, timeoutMs = 5 * 60 * 1000
 export async function runVapiCall(targetNumber) {
   const id = await placeCall(targetNumber);
   const call = await waitForEnd(id);
+  const connected = deriveConnected(call.endedReason);
+  console.log(`[call] endedReason="${call.endedReason}" -> connected=${connected}` +
+    (connected ? "" : "  (will be scored as a missed call: hard-zero)"));
   return {
     callId: id,
     endedReason: call.endedReason,
-    connected: deriveConnected(call.endedReason),
+    connected,
     transcript: call.transcript || "",
     messages: call.messages || [],
     recordingUrl: call.recordingUrl || call.artifact?.recording?.url || null
