@@ -27,7 +27,7 @@ export function scoreAudit(sig) {
     out.signals.price_clarity = { points: 0, max: 25, detail: "No price given." };
     out.signals.availability  = { points: 0, max: 20, detail: "No availability given." };
     out.signals.lead_capture  = { points: 0, max: 15, detail: "No lead captured." };
-    out.score = 5;
+    out.score = 0;
     out.rating = "not_ready";
     out.fixes = [{
       signal: "answered", points_recoverable: 20,

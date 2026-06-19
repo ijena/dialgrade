@@ -14,7 +14,7 @@ Score how the business handled ONE such call, using ONLY these signals and weigh
 4. Availability given — 20 pts. Gave a day/time or clear yes=20, else 0
 5. Lead capture — 15 pts. Offered to book / took a callback=15, else 0
 
-HARD RULE: if call_connected is false, total score is capped at 5.
+HARD RULE: if call_connected is false, total score is capped at 0.
 
 Then list ranked fixes (max 4), biggest points-recoverable first, written to the business owner.
 
