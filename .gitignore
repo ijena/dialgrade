@@ -1,0 +1,13 @@
+# secrets — never commit
+.env
+.env.local
+
+# deps
+node_modules/
+
+# logs / os junk
+npm-debug.log*
+.DS_Store
+
+# saved call results
+calls/*.json
