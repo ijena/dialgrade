@@ -223,7 +223,7 @@ function scoreAudit(sig){
     out.signals.price_clarity = { points:0, max:25, detail:"No price given." };
     out.signals.availability  = { points:0, max:20, detail:"No availability given." };
     out.signals.lead_capture  = { points:0, max:15, detail:"No lead captured." };
-    out.score = 5;
+    out.score = 0;
     out.rating = "not_ready";
     out.fixes = [{ signal:"answered", points:20,
       fix:"Answer calls from unknown numbers — Google's AI shopper is often the first 'customer' to call. A missed call drops you from the shortlist." }];
@@ -502,7 +502,7 @@ async function finishAudit(biz, phase, track, wave, reduce){
     if(!data.ok) throw new Error(data.error||"server error");
     call = data.call;                         // { connected, transcript, endedReason, ... }
     // score in-browser with the same rubric (until Nebius scoring runs server-side)
-    result = data.score || scoreFromCall(call);  // prefer Nebius, fall back to local
+    result = scoreFromCall(call);
   } catch(err){
     // ---- fallback: simulated call (keeps the before/after demo alive) ----
     console.warn("Live call failed, using simulation:", err.message);
