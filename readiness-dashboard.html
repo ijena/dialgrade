@@ -88,6 +88,10 @@
   .runbtn:hover{filter:brightness(1.06)}
   .runbtn:active{transform:translateY(1px)}
   .runbtn:disabled{opacity:.5;cursor:not-allowed}
+  .qinput{width:100%;background:var(--base);color:var(--ink);border:1px solid var(--line);
+    border-radius:10px;padding:11px 13px;font-family:var(--body);font-size:13px;margin-bottom:14px}
+  .qinput:focus{outline:none;border-color:var(--amber)}
+  .qinput::placeholder{color:var(--muted)}
   .phase{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   .phase b{color:var(--amber)}
 
@@ -400,6 +404,9 @@ function renderMain(){
 
     <div class="panel">
       <div class="strip">
+        <input id="question" class="qinput" type="text"
+          placeholder="What should the agent ask? e.g. What would an outdoor pipe leak repair cost, and do you have Saturday?"
+          value="What would a repair for an outdoor leaking or burst pipe typically cost, and do you have availability this Saturday?">
         <div class="row">
           <button class="runbtn" id="runbtn" onclick="runAudit()">${biz.history.length>1||!seeded?'Run audit again':'Run audit call'}</button>
           <div class="wave" id="wave">${"<span></span>".repeat(6)}</div>
@@ -498,7 +505,7 @@ async function finishAudit(biz, phase, track, wave, reduce){
     const res = await fetch(SERVER_URL, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ number: biz.phone, businessName: biz.name })  // omit number -> server uses TARGET_NUMBER
+      body: JSON.stringify({ number: biz.phone, businessName: biz.name, question: (document.getElementById("question")?.value || "").trim() })  // omit number -> server uses TARGET_NUMBER
     });
     const data = await res.json();
     if(!data.ok) throw new Error(data.error||"server error");

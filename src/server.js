@@ -33,12 +33,13 @@ createServer(async (req, res) => {
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
-      const { number, businessName } = body ? JSON.parse(body) : {};
+      const { number, businessName, question } = body ? JSON.parse(body) : {};
       const target = number || process.env.TARGET_NUMBER;
       const name = businessName || "Unknown business";
 
       console.log(`Placing call to ${target} for "${name}" …`);
-      const call = await runVapiCall(target);            // Vapi
+      if (question) console.log(`  custom question: "${question}"`);
+      const call = await runVapiCall(target, question);   // Vapi (optional question override)
       const score = await scoreWithNebius(call);         // Nebius
       const saved = await saveAudit(name, call, score);  // Insforge
 
