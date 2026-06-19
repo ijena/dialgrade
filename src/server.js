@@ -8,7 +8,7 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { runVapiCall } from "./vapi.js";
-// import { scoreWithNebius } from "./nebius.js"; // add back when you do scoring
+import { scoreWithNebius } from "./nebius.js"; // add back when you do scoring
 
 const PORT = process.env.PORT || 8787;
 
@@ -32,7 +32,7 @@ createServer(async (req, res) => {
 
       console.log(`Placing call to ${target} …`);
       const call = await runVapiCall(target);          // real Vapi call
-      // const score = await scoreWithNebius(call);     // <- add scoring later
+      const score = await scoreWithNebius(call);     // <- add scoring later
 
       res.writeHead(200, { "Content-Type": "application/json", ...CORS });
       return res.end(JSON.stringify({ ok: true, call /*, score */ }));
