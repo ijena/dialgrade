@@ -405,7 +405,7 @@ function renderMain(){
     <div class="panel">
       <div class="strip">
         <input id="question" class="qinput" type="text"
-          placeholder="What should the agent ask? e.g. What would an outdoor pipe leak repair cost, and do you have Saturday?"
+          placeholder="Type just the question — the call opens with the consent/recording intro automatically."
           value="What would a repair for an outdoor leaking or burst pipe typically cost, and do you have availability this Saturday?">
         <div class="row">
           <button class="runbtn" id="runbtn" onclick="runAudit()">${biz.history.length>1||!seeded?'Run audit again':'Run audit call'}</button>
