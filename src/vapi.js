@@ -21,7 +21,8 @@ const CONNECTED_REASONS = [
 // Reasons that explicitly mean nobody picked up. Kept for clarity/logging.
 const NOT_CONNECTED_HINTS = [
   "voicemail", "no-answer", "did-not-answer", "customer-did-not-answer",
-  "busy", "failed", "no-pickup", "twilio", "canceled", "cancelled"
+  "busy", "failed", "no-pickup", "twilio", "canceled", "cancelled",
+  "silence", "silence-timed-out"   // line went quiet = nobody answered
 ];
 
 // Decide whether a human actually answered.
@@ -38,15 +39,20 @@ export function deriveConnected(endedReason = "") {
   return false;
 }
 
-export async function placeCall(targetNumber) {
+export async function placeCall(targetNumber, question) {
+  const payload = {
+    phoneNumberId: process.env.VAPI_PHONE_NUMBER_ID,
+    assistantId: process.env.VAPI_ASSISTANT_ID,
+    customer: { number: targetNumber }
+  };
+  // if a custom question was provided, override the assistant's opening line for this call
+  if (question && question.trim()) {
+    payload.assistantOverrides = { firstMessage: question.trim() };
+  }
   const res = await fetch(`${BASE}/call/phone`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({
-      phoneNumberId: process.env.VAPI_PHONE_NUMBER_ID,
-      assistantId: process.env.VAPI_ASSISTANT_ID,
-      customer: { number: targetNumber }
-    })
+    body: JSON.stringify(payload)
   });
   const body = await res.json();
   if (!res.ok) throw new Error(`placeCall ${res.status}: ${JSON.stringify(body)}`);
@@ -72,8 +78,8 @@ export async function waitForEnd(id, { everyMs = 4000, timeoutMs = 5 * 60 * 1000
 }
 
 // Place a call and return everything the scorer needs.
-export async function runVapiCall(targetNumber) {
-  const id = await placeCall(targetNumber);
+export async function runVapiCall(targetNumber, question) {
+  const id = await placeCall(targetNumber, question);
   const call = await waitForEnd(id);
   const connected = deriveConnected(call.endedReason);
   console.log(`[call] endedReason="${call.endedReason}" -> connected=${connected}` +
