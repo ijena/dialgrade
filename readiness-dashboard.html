@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dialgrade — AI-Caller Readiness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --base:#0E1822;       /* console floor */
+    --panel:#16242F;      /* raised panel */
+    --panel-2:#1B2C38;
+    --line:#243643;       /* hairline */
+    --ink:#DCE6EC;
+    --muted:#7C909E;
+    --amber:#F2A33C;      /* live / ringing signal */
+    --green:#5BD6A0;      /* ready */
+    --red:#E8654F;        /* not ready */
+    --display:'Space Grotesk',sans-serif;
+    --body:'Inter',sans-serif;
+    --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(242,163,60,.06), transparent 60%),
+      var(--base);
+    color:var(--ink);font-family:var(--body);
+    -webkit-font-smoothing:antialiased;line-height:1.45;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+
+  /* header */
+  header{display:flex;justify-content:space-between;align-items:flex-end;
+    gap:24px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .dot{width:11px;height:11px;border-radius:50%;background:var(--amber);
+    box-shadow:0 0 0 4px rgba(242,163,60,.15);animation:breathe 2.6s ease-in-out infinite}
+  @keyframes breathe{50%{box-shadow:0 0 0 8px rgba(242,163,60,.04)}}
+  .brand h1{font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:-.02em}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.16em;margin-top:2px}
+  .pitch{max-width:430px;font-size:13px;color:var(--muted);text-align:right}
+  .pitch b{color:var(--ink);font-weight:600}
+
+  /* layout */
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:20px;margin-top:24px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border-bottom:1px solid var(--line)}
+  .panel-head .label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted)}
+  .panel-head .count{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* roster */
+  .roster{padding:6px}
+  .biz{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;
+    padding:11px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent;
+    transition:background .15s,border-color .15s}
+  .biz:hover{background:var(--panel-2)}
+  .biz.active{background:var(--panel-2);border-color:var(--line)}
+  .biz .name{font-weight:600;font-size:14px}
+  .biz .meta{font-family:var(--mono);font-size:11px;color:var(--muted);grid-column:1}
+  .biz .score{font-family:var(--mono);font-weight:700;font-size:16px;text-align:right}
+  .biz .bar{grid-column:1 / -1;height:3px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:2px}
+  .biz .bar i{display:block;height:100%;border-radius:2px}
+  .s-ready{color:var(--green)} .b-ready{background:var(--green)}
+  .s-warn{color:var(--amber)} .b-warn{background:var(--amber)}
+  .s-bad{color:var(--red)} .b-bad{background:var(--red)}
+
+  /* main */
+  .main{display:flex;flex-direction:column;gap:20px}
+  .biz-title{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .biz-title h2{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.02em}
+  .biz-title .addr{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  /* call strip — the signature */
+  .strip{padding:18px 18px 20px}
+  .strip .row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .runbtn{font-family:var(--display);font-weight:600;font-size:14px;color:var(--base);
+    background:var(--amber);border:none;border-radius:10px;padding:12px 20px;cursor:pointer;
+    transition:transform .1s,filter .15s}
+  .runbtn:hover{filter:brightness(1.06)}
+  .runbtn:active{transform:translateY(1px)}
+  .runbtn:disabled{opacity:.5;cursor:not-allowed}
+  .phase{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .phase b{color:var(--amber)}
+
+  .wave{display:flex;align-items:flex-end;gap:3px;height:22px}
+  .wave span{width:3px;background:var(--amber);border-radius:2px;height:5px;opacity:.35}
+  .wave.live span{animation:eq 1s ease-in-out infinite}
+  .wave.live span:nth-child(2){animation-delay:.12s}
+  .wave.live span:nth-child(3){animation-delay:.24s}
+  .wave.live span:nth-child(4){animation-delay:.36s}
+  .wave.live span:nth-child(5){animation-delay:.48s}
+  .wave.live span:nth-child(6){animation-delay:.6s}
+  @keyframes eq{0%,100%{height:5px;opacity:.35}50%{height:22px;opacity:1}}
+
+  .track{margin-top:16px;height:2px;background:var(--line);border-radius:2px;position:relative;overflow:hidden}
+  .track i{position:absolute;left:0;top:0;height:100%;width:0;background:var(--amber);transition:width .4s ease}
+
+  /* scorecard */
+  .score-hero{display:flex;align-items:center;gap:22px;padding:20px 18px;border-bottom:1px solid var(--line)}
+  .gauge{font-family:var(--mono);font-weight:700;font-size:52px;line-height:1;letter-spacing:-.03em}
+  .gauge small{font-size:18px;color:var(--muted);font-weight:500}
+  .rating{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    padding:6px 12px;border-radius:999px;border:1px solid currentColor}
+  .hero-note{font-size:13px;color:var(--muted);margin-left:auto;max-width:240px;text-align:right}
+
+  .signals{padding:6px 18px 14px}
+  .sig{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--line)}
+  .sig:last-child{border-bottom:none}
+  .sig .nm{font-size:13px;font-weight:600}
+  .sig .dt{font-size:12px;color:var(--muted)}
+  .sig .track-s{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:5px}
+  .sig .track-s i{display:block;height:100%;border-radius:3px;transition:width .6s ease}
+  .sig .pts{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap}
+  .sig .pts b{color:var(--ink)}
+
+  .fixes{padding:16px 18px 20px;border-top:1px solid var(--line)}
+  .fixes h3{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:12px}
+  .fix{display:flex;gap:12px;align-items:flex-start;padding:9px 0}
+  .fix .rec{font-family:var(--mono);font-size:12px;color:var(--amber);font-weight:700;
+    white-space:nowrap;padding-top:1px}
+  .fix .txt{font-size:13px}
+  .allgood{font-size:13px;color:var(--green)}
+
+  /* history */
+  .hist{padding:14px 18px 18px}
+  .hist-row{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line)}
+  .hist-row:last-child{border-bottom:none}
+  .hist-row .t{font-family:var(--mono);font-size:11px;color:var(--muted);width:84px}
+  .hist-row .s{font-family:var(--mono);font-weight:700;width:42px}
+  .hist-row .delta{font-family:var(--mono);font-size:11px;margin-left:auto}
+  .up{color:var(--green)} .down{color:var(--red)}
+
+  .empty{padding:34px 18px;color:var(--muted);font-size:13px;text-align:center}
+
+  /* transcript seam */
+  details.seam{margin-top:4px}
+  details.seam summary{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;padding:12px 18px;
+    border-top:1px solid var(--line);list-style:none}
+  details.seam summary::-webkit-details-marker{display:none}
+  details.seam summary:hover{color:var(--ink)}
+  .seam-body{padding:0 18px 18px}
+  .seam-body textarea{width:100%;min-height:90px;background:var(--base);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);
+    font-size:12px;resize:vertical}
+  .seam-body .opts{display:flex;gap:14px;align-items:center;margin:10px 0;font-size:12px;color:var(--muted)}
+  .seam-body label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .ghostbtn{font-family:var(--display);font-weight:600;font-size:13px;color:var(--ink);
+    background:transparent;border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer}
+  .ghostbtn:hover{border-color:var(--muted)}
+
+  footer{margin-top:30px;font-family:var(--mono);font-size:11px;color:var(--muted);
+    text-align:center;line-height:1.7}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.05ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <h1>Dialgrade</h1>
+        <div class="sub">AI-Caller Readiness · Agency Console</div>
+      </div>
+    </div>
+    <div class="pitch">
+      Everyone audits whether Google's AI will <i>pick</i> you. <b>We call your
+      business like Google's AI does — and score what actually happens on the line.</b>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- roster -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="label">Client roster</span>
+        <span class="count">ranked · most at-risk first</span>
+      </div>
+      <div class="roster" id="roster"></div>
+    </div>
+
+    <!-- main -->
+    <div class="main" id="main"></div>
+  </div>
+
+  <footer>
+    Demo build · live call path stubbed at <b>runVapiCall()</b> → wire to Vapi ·
+    scoring runs the real rubric in <b>scoreAudit()</b> → mirror in Nebius ·
+    persistence stubbed at <b>saveToInsforge()</b>
+  </footer>
+</div>
+
+<script>
+/* ============================================================================
+   SCORING RUBRIC  —  the core IP.  Keep in sync with the Nebius prompt.
+   Input signals describe how the business handled the audit call.
+   ========================================================================== */
+function scoreAudit(sig){
+  // sig = { connected, secondsToPrice, priceClarity, availabilityGiven, leadCaptured }
+  const out = { signals:{}, fixes:[] };
+
+  // 1. answered
+  const aPts = sig.connected ? 20 : 0;
+  out.signals.answered = { points:aPts, max:20,
+    detail: sig.connected ? "A person answered and handled the call."
+                          : "Call went to voicemail / no answer." };
+
+  // hard ceiling: a missed call is the worst outcome
+  if(!sig.connected){
+    out.signals.time_to_price = { points:0, max:20, detail:"No call to price." };
+    out.signals.price_clarity = { points:0, max:25, detail:"No price given." };
+    out.signals.availability  = { points:0, max:20, detail:"No availability given." };
+    out.signals.lead_capture  = { points:0, max:15, detail:"No lead captured." };
+    out.score = 5;
+    out.rating = "not_ready";
+    out.fixes = [{ signal:"answered", points:20,
+      fix:"Answer calls from unknown numbers — Google's AI shopper is often the first 'customer' to call. A missed call drops you from the shortlist." }];
+    return out;
+  }
+
+  // 2. time to price
+  let tPts = 0, tDetail;
+  const s = sig.secondsToPrice;
+  if(s==null){ tPts=0; tDetail="Never gave a price."; }
+  else if(s<=20){ tPts=20; tDetail="Price stated in "+s+"s — fast."; }
+  else if(s<=45){ tPts=12; tDetail="Price stated in "+s+"s — a little slow."; }
+  else if(s<=90){ tPts=6;  tDetail="Price stated in "+s+"s — too slow."; }
+  out.signals.time_to_price = { points:tPts, max:20, detail:tDetail };
+
+  // 3. price clarity
+  let pPts, pDetail;
+  if(sig.priceClarity==="number"||sig.priceClarity==="range"){ pPts=25; pDetail="Gave a clear number or range."; }
+  else if(sig.priceClarity==="vague"){ pPts=8; pDetail="Vague — 'it depends / come in'."; }
+  else { pPts=0; pDetail="No price at all."; }
+  out.signals.price_clarity = { points:pPts, max:25, detail:pDetail };
+
+  // 4. availability
+  const vPts = sig.availabilityGiven ? 20 : 0;
+  out.signals.availability = { points:vPts, max:20,
+    detail: sig.availabilityGiven ? "Gave a day/time for the requested slot." : "Didn't give availability." };
+
+  // 5. lead capture
+  const lPts = sig.leadCaptured ? 15 : 0;
+  out.signals.lead_capture = { points:lPts, max:15,
+    detail: sig.leadCaptured ? "Tried to book or take a callback." : "Didn't try to capture the lead." };
+
+  const total = aPts+tPts+pPts+vPts+lPts;
+  out.score = total;
+  out.rating = total>=75 ? "ready" : total>=45 ? "needs_work" : "not_ready";
+
+  // ranked fix list — biggest lever first
+  const f=[];
+  if(pPts<25) f.push({signal:"price_clarity",points:25-pPts,fix:"Quote a clear starting price or range out loud — 'repairs start at $99 plus parts.' Clear beats perfect; the AI needs a number to rank you."});
+  if(vPts<20) f.push({signal:"availability",points:20-vPts,fix:"State availability without being asked twice — 'we've got Saturday at 10.' Availability is half of what the shopper is checking."});
+  if(tPts<20) f.push({signal:"time_to_price",points:20-tPts,fix:"Lead with the price fast. Reps who hesitate or say 'it depends' get a weaker summary than reps who quote a range in the first breath."});
+  if(lPts<15) f.push({signal:"lead_capture",points:15-lPts,fix:"Always try to book or take a callback number before the call ends — a captured lead is the whole point."});
+  f.sort((a,b)=>b.points-a.points);
+  out.fixes = f.slice(0,4);
+  return out;
+}
+
+/* ============================================================================
+   INTEGRATION SEAMS  —  stubbed for the demo, swap for real services.
+   ========================================================================== */
+
+// TODO(Vapi): replace this simulation with a real outbound call.
+// Trigger your Vapi agent, await the call, return { connected, transcript, meta }.
+// For the demo we alternate fumble → clean so the before/after lands.
+function runVapiCall(biz){
+  const runs = biz.history.length;
+  const fumble = runs % 2 === 0;     // first live run fumbles, retry is clean
+  if(fumble){
+    return {
+      connected:true,
+      transcript:"AI: Hi, automated assistant calling for a customer, this may be recorded — what would an outdoor pipe leak repair run?\nBIZ: Uh… that depends, hard to say. You'd really have to come in and we'd take a look.\nAI: Even a rough range? And do you have Saturday?\nBIZ: I couldn't tell you without seeing it. You can call back later maybe.",
+      signals:{ connected:true, secondsToPrice:null, priceClarity:"vague", availabilityGiven:false, leadCaptured:false }
+    };
+  }
+  return {
+    connected:true,
+    transcript:"AI: Hi, automated assistant calling for a customer, this may be recorded — what would an outdoor pipe leak repair run?\nBIZ: Outdoor pipe repair starts at $99 for the diagnostic plus parts, usually $150 to $300 all in.\nAI: Great — any availability this Saturday?\nBIZ: Yes, we've got 10am open Saturday. Want me to grab your name and book it?",
+    signals:{ connected:true, secondsToPrice:8, priceClarity:"range", availabilityGiven:true, leadCaptured:true }
+  };
+}
+
+// TODO(Nebius): send { connected, transcript } to the Nebius scoring prompt.
+// For the demo we score locally with the same rubric the prompt encodes.
+function scoreWithNebius(call){ return scoreAudit(call.signals); }
+
+// TODO(Insforge): persist the audit. For the demo we hold it in memory.
+function saveToInsforge(biz, audit){ biz.history.unshift(audit); }
+
+/* ============================================================================
+   STATE
+   ========================================================================== */
+const STREETS=["Idhant Ave","Mission","Folsom","Valencia","Geary","Polk","Divisadero","Castro","Irving","Clement"];
+function seedHistory(score){
+  return [{ ts:"seed", score, rating: score>=75?"ready":score>=45?"needs_work":"not_ready" }];
+}
+let businesses = [
+  ["Idhant Plumbing", 32],
+  ["Bayview Plumbing & Drain", 28],
+  ["Golden Gate Pipeworks", 35],
+  ["Sunset Rooter Co.", 41],
+  ["Marina Leak Pros", 52],
+  ["Pacific Heights Plumbing", 58],
+  ["Noe Valley Drain Doctors", 63],
+  ["Richmond Rapid Repair", 71],
+  ["Embarcadero Emergency Plumb", 82],
+  ["Twin Peaks Pipe & Valve", 88],
+].map((b,i)=>({
+  id:i, name:b[0], addr:(120+i*37)+" "+STREETS[i]+" St",
+  // phone left undefined -> the server dials TARGET_NUMBER from your .env (your phone)
+  phone: undefined,
+  history: seedHistory(b[1])
+}));
+
+let selectedId = 0;
+let calling = false;
+
+/* ============================================================================
+   RENDER
+   ========================================================================== */
+const cls = r => r==="ready"?"ready":r==="needs_work"?"warn":"bad";
+const ratingLabel = r => r==="ready"?"Ready":r==="needs_work"?"Needs work":"Not ready";
+const ratingColor = r => r==="ready"?"var(--green)":r==="needs_work"?"var(--amber)":"var(--red)";
+
+function latest(biz){ return biz.history[0]; }
+
+function renderRoster(){
+  const el=document.getElementById("roster");
+  const sorted=[...businesses].sort((a,b)=>latest(a).score-latest(b).score);
+  el.innerHTML=sorted.map(b=>{
+    const a=latest(b), c=cls(a.rating);
+    return `<div class="biz ${b.id===selectedId?'active':''}" onclick="select(${b.id})">
+      <div class="name">${b.name}</div>
+      <div class="score s-${c}">${a.score}</div>
+      <div class="meta">${a.rating==='ready'?'on the shortlist':'at risk of being dropped'}</div>
+      <div class="bar"><i class="b-${c}" style="width:${a.score}%"></i></div>
+    </div>`;
+  }).join("");
+}
+
+function renderMain(){
+  const biz=businesses.find(b=>b.id===selectedId);
+  const a=latest(biz), c=cls(a.rating);
+  const seeded = a.ts==="seed";
+  const main=document.getElementById("main");
+
+  // scorecard only if we have a real audit (not just seed) OR always show seed score
+  const sigRows = (a.signals)? Object.entries({
+    answered:"Answered the call",
+    time_to_price:"Time to first price",
+    price_clarity:"Price clarity",
+    availability:"Availability given",
+    lead_capture:"Lead capture"
+  }).map(([k,nm])=>{
+    const s=a.signals[k]; const pc = s.points/s.max>=.75?"ready":s.points/s.max>=.4?"warn":"bad";
+    return `<div class="sig">
+      <div><div class="nm">${nm}</div><div class="track-s"><i class="b-${pc}" style="width:${s.points/s.max*100}%"></i></div></div>
+      <div class="dt">${s.detail}</div>
+      <div class="pts"><b>${s.points}</b>/${s.max}</div>
+    </div>`;
+  }).join("") : `<div class="empty">No call audit yet — run one to see the signal breakdown.</div>`;
+
+  const fixes = a.fixes? (a.fixes.length? a.fixes.map(f=>
+      `<div class="fix"><div class="rec">+${f.points}</div><div class="txt">${f.fix}</div></div>`).join("")
+      : `<div class="allgood">No fixes needed — this line is ready for AI callers.</div>`)
+    : "";
+
+  const hist = biz.history.map((h,i)=>{
+    const prev=biz.history[i+1];
+    let delta="";
+    if(prev){ const d=h.score-prev.score; delta=`<span class="delta ${d>=0?'up':'down'}">${d>=0?'▲':'▼'} ${Math.abs(d)}</span>`; }
+    return `<div class="hist-row">
+      <span class="t">${h.ts==='seed'?'baseline':h.ts}</span>
+      <span class="s s-${cls(h.rating)}">${h.score}</span>
+      <span class="dt" style="font-size:12px;color:var(--muted)">${ratingLabel(h.rating)}</span>
+      ${delta}
+    </div>`;
+  }).join("");
+
+  main.innerHTML=`
+    <div class="biz-title">
+      <h2>${biz.name}</h2>
+      <span class="addr">${biz.addr} · San Francisco</span>
+    </div>
+
+    <div class="panel">
+      <div class="strip">
+        <div class="row">
+          <button class="runbtn" id="runbtn" onclick="runAudit()">${biz.history.length>1||!seeded?'Run audit again':'Run audit call'}</button>
+          <div class="wave" id="wave">${"<span></span>".repeat(6)}</div>
+          <div class="phase" id="phase">Ready to dial ${biz.name.split(' ')[0]}…</div>
+        </div>
+        <div class="track"><i id="track"></i></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="label">Readiness scorecard</span>
+        <span class="count">${seeded?'baseline estimate':'last audit'}</span></div>
+      <div class="score-hero">
+        <div class="gauge s-${c}" id="gauge">${a.score}<small>/100</small></div>
+        <div class="rating" style="color:${ratingColor(a.rating)}">${ratingLabel(a.rating)}</div>
+        <div class="hero-note">${a.rating==='ready'
+          ? "This line gives Google's AI a clean, rankable quote."
+          : "Losing leads it never sees — the AI can't get a usable quote here."}</div>
+      </div>
+      <div class="signals">${sigRows}</div>
+      ${a.fixes? `<div class="fixes"><h3>Ranked fixes</h3>${fixes}</div>`:""}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="label">Audit history</span>
+        <span class="count">${biz.history.length} on record</span></div>
+      <div class="hist">${hist}</div>
+    </div>
+
+    <div class="panel">
+      <details class="seam">
+        <summary>▸ Score a raw transcript (Vapi → Nebius seam)</summary>
+        <div class="seam-body">
+          <textarea id="ts" placeholder="Paste a call transcript, set the signals, and score it with the live rubric…">AI: …outdoor pipe leak repair, what would that run?
+BIZ: Starts at $99 plus parts, and we have Saturday open.</textarea>
+          <div class="opts">
+            <label><input type="checkbox" id="o-conn" checked> answered</label>
+            <label><input type="checkbox" id="o-price" checked> clear price</label>
+            <label><input type="checkbox" id="o-avail" checked> availability</label>
+            <label><input type="checkbox" id="o-lead"> lead captured</label>
+          </div>
+          <button class="ghostbtn" onclick="scoreManual()">Score this transcript</button>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function render(){ renderRoster(); renderMain(); }
+
+window.select = id => { if(calling) return; selectedId=id; render(); };
+
+/* ============================================================================
+   THE LIVE-CALL SEQUENCE  —  the signature moment
+   ========================================================================== */
+const SERVER_URL = "http://localhost:8787/audit";  // your local Dialgrade server
+const USE_LIVE_CALL = true;  // set false to force the simulated path
+
+const PHASES=[
+  ["Dialing…",18],["Ringing…",42],["Connected — on the line",70],["Listening / scoring…",92]
+];
+window.runAudit = ()=>{
+  if(calling) return;
+  const biz=businesses.find(b=>b.id===selectedId);
+  calling=true;
+  const btn=document.getElementById("runbtn");
+  const wave=document.getElementById("wave");
+  const phase=document.getElementById("phase");
+  const track=document.getElementById("track");
+  btn.disabled=true; wave.classList.add("live");
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const step = reduce? 250 : 1000;
+
+  let i=0;
+  const tick=()=>{
+    if(i<PHASES.length){
+      phase.innerHTML="<b>"+PHASES[i][0]+"</b>";
+      track.style.width=PHASES[i][1]+"%";
+      i++; setTimeout(tick, step);
+    } else {
+      finishAudit(biz, phase, track, wave, reduce);
+    }
+  };
+  tick();
+};
+
+/* Place the real call via the local server; fall back to the simulation if the
+   server is down so the demo never dead-airs. */
+async function finishAudit(biz, phase, track, wave, reduce){
+  let call, result;
+  try {
+    if(!USE_LIVE_CALL) throw new Error("live disabled");
+    const res = await fetch(SERVER_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ number: biz.phone })   // omit/null -> server uses TARGET_NUMBER
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error||"server error");
+    call = data.call;                         // { connected, transcript, endedReason, ... }
+    // score in-browser with the same rubric (until Nebius scoring runs server-side)
+    result = scoreFromCall(call);
+  } catch(err){
+    // ---- fallback: simulated call (keeps the before/after demo alive) ----
+    console.warn("Live call failed, using simulation:", err.message);
+    call = runVapiCall(biz);
+    result = scoreWithNebius(call);
+  }
+
+  const audit = {
+    ts: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    score: result.score, rating: result.rating,
+    signals: result.signals, fixes: result.fixes, transcript: call.transcript
+  };
+  track.style.width="100%";
+  phase.innerHTML="<b>Done</b> · scored "+result.score+"/100";
+  saveToInsforge(biz, audit);
+  setTimeout(()=>{ calling=false; wave.classList.remove("live"); render(); }, reduce?150:650);
+}
+
+/* Turn a real Vapi call object into a score using the local rubric.
+   Naive signal extraction from the transcript — Nebius does this better. */
+function scoreFromCall(call){
+  const t = (call.transcript||"").toLowerCase();
+  const hasPrice = /\$|\bstarts at|\bprice|\b\d{2,}\b/.test(t);
+  const vague = /(it depends|come in|hard to say|without seeing|can't say)/.test(t);
+  const avail = /(saturday|sunday|monday|tomorrow|today|we have|open|book you|am\b|pm\b)/.test(t);
+  const lead  = /(book|your name|callback|call you back|schedule|grab your)/.test(t);
+  return scoreAudit({
+    connected: call.connected,
+    secondsToPrice: hasPrice && !vague ? 10 : null,
+    priceClarity: hasPrice && !vague ? "range" : vague ? "vague" : "none",
+    availabilityGiven: avail,
+    leadCaptured: lead
+  });
+}
+
+window.scoreManual = ()=>{
+  const sig={
+    connected:document.getElementById("o-conn").checked,
+    secondsToPrice:document.getElementById("o-price").checked?8:null,
+    priceClarity:document.getElementById("o-price").checked?"range":"none",
+    availabilityGiven:document.getElementById("o-avail").checked,
+    leadCaptured:document.getElementById("o-lead").checked
+  };
+  const r=scoreAudit(sig);
+  const biz=businesses.find(b=>b.id===selectedId);
+  saveToInsforge(biz, {
+    ts:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    score:r.score, rating:r.rating, signals:r.signals, fixes:r.fixes
+  });
+  render();
+};
+
+render();
+</script>
+</body>
+</html>
