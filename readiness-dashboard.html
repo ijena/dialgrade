@@ -452,6 +452,9 @@ window.select = id => { if(calling) return; selectedId=id; render(); };
 /* ============================================================================
    THE LIVE-CALL SEQUENCE  —  the signature moment
    ========================================================================== */
+const SERVER_URL = "http://localhost:8787/audit";  // your local Dialgrade server
+const USE_LIVE_CALL = true;  // set false to force the simulated path
+
 const PHASES=[
   ["Dialing…",18],["Ringing…",42],["Connected — on the line",70],["Listening / scoring…",92]
 ];
@@ -475,22 +478,62 @@ window.runAudit = ()=>{
       track.style.width=PHASES[i][1]+"%";
       i++; setTimeout(tick, step);
     } else {
-      // ---- call returns: Vapi → Nebius → Insforge ----
-      const call = runVapiCall(biz);          // TODO: real Vapi call
-      const result = scoreWithNebius(call);   // TODO: real Nebius scoring
-      const audit = {
-        ts: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
-        score: result.score, rating: result.rating,
-        signals: result.signals, fixes: result.fixes, transcript: call.transcript
-      };
-      track.style.width="100%";
-      phase.innerHTML="<b>Done</b> · scored "+result.score+"/100";
-      saveToInsforge(biz, audit);             // TODO: real Insforge write
-      setTimeout(()=>{ calling=false; wave.classList.remove("live"); render(); }, reduce?150:650);
+      finishAudit(biz, phase, track, wave, reduce);
     }
   };
   tick();
 };
+
+/* Place the real call via the local server; fall back to the simulation if the
+   server is down so the demo never dead-airs. */
+async function finishAudit(biz, phase, track, wave, reduce){
+  let call, result;
+  try {
+    if(!USE_LIVE_CALL) throw new Error("live disabled");
+    const res = await fetch(SERVER_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ number: biz.phone })   // omit/null -> server uses TARGET_NUMBER
+    });
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error||"server error");
+    call = data.call;                         // { connected, transcript, endedReason, ... }
+    // score in-browser with the same rubric (until Nebius scoring runs server-side)
+    result = scoreFromCall(call);
+  } catch(err){
+    // ---- fallback: simulated call (keeps the before/after demo alive) ----
+    console.warn("Live call failed, using simulation:", err.message);
+    call = runVapiCall(biz);
+    result = scoreWithNebius(call);
+  }
+
+  const audit = {
+    ts: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    score: result.score, rating: result.rating,
+    signals: result.signals, fixes: result.fixes, transcript: call.transcript
+  };
+  track.style.width="100%";
+  phase.innerHTML="<b>Done</b> · scored "+result.score+"/100";
+  saveToInsforge(biz, audit);
+  setTimeout(()=>{ calling=false; wave.classList.remove("live"); render(); }, reduce?150:650);
+}
+
+/* Turn a real Vapi call object into a score using the local rubric.
+   Naive signal extraction from the transcript — Nebius does this better. */
+function scoreFromCall(call){
+  const t = (call.transcript||"").toLowerCase();
+  const hasPrice = /\$|\bstarts at|\bprice|\b\d{2,}\b/.test(t);
+  const vague = /(it depends|come in|hard to say|without seeing|can't say)/.test(t);
+  const avail = /(saturday|sunday|monday|tomorrow|today|we have|open|book you|am\b|pm\b)/.test(t);
+  const lead  = /(book|your name|callback|call you back|schedule|grab your)/.test(t);
+  return scoreAudit({
+    connected: call.connected,
+    secondsToPrice: hasPrice && !vague ? 10 : null,
+    priceClarity: hasPrice && !vague ? "range" : vague ? "vague" : "none",
+    availabilityGiven: avail,
+    leadCaptured: lead
+  });
+}
 
 window.scoreManual = ()=>{
   const sig={
