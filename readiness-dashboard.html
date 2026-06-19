@@ -502,7 +502,7 @@ async function finishAudit(biz, phase, track, wave, reduce){
     if(!data.ok) throw new Error(data.error||"server error");
     call = data.call;                         // { connected, transcript, endedReason, ... }
     // score in-browser with the same rubric (until Nebius scoring runs server-side)
-    result = scoreFromCall(call);
+    result = data.score || scoreFromCall(call);  // prefer Nebius, fall back to local
   } catch(err){
     // ---- fallback: simulated call (keeps the before/after demo alive) ----
     console.warn("Live call failed, using simulation:", err.message);
